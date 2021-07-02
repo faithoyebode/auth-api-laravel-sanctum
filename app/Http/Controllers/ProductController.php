@@ -32,7 +32,13 @@ class ProductController extends Controller
             'price' => 'required'
         ]);
 
-        return Product::create($request->all());
+        $product = Product::create($request->all());
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $product,
+            'message' => 'A new product has just been created'
+        ], 201);
     }
 
     /**
