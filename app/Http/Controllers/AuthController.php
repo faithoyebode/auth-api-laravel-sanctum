@@ -49,10 +49,38 @@ class AuthController extends Controller
      * @return \Illuminate\Http\Response
      */
     public function login(Request $request){
-        //auth()->user()->tokens()->delete();
+
+        $fields = $request->validate([
+            'email' => 'required|string',
+            'password' => 'required|string'
+        ]);
+
+        //Check email
+        $user = User::where('email', $fields['email'])->first();
+
+        //Check password
+        $isPasswordCorrect = Hash::check($fields['password'], $user->password);
+
+        //Check if the user exists or the password is correct
+        if(!$user || !$isPasswordCorrect){
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid credentials'
+            ], 401);
+        }
+
+        //create token
+        $token = $user->createToken('myapptoken')->plainTextToken;
+
+        //prepare response
+        $response = [
+            'user' => $user,
+            'token' => $token
+        ];
 
         return response()->json([
             'status' => 'success',
+            'data' => $response,
             'message' => 'Logged in'
         ], 200);
     }
