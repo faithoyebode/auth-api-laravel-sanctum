@@ -30,11 +30,8 @@ class AuthController extends Controller
             'password' => bcrypt($fields['password'])
         ]);
 
-        $token = $user->createToken('myapptoken')->plainTextToken;
-
         $response = [
             'user' => $user,
-            'token' => $token
         ];
 
         event(new Registered($user));
@@ -42,7 +39,7 @@ class AuthController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $response,
-            'message' => 'A new user has just been created'
+            'message' => 'Your account has just been created. A verification link has been set to your e-mail address. Click on it to activate your account'
         ], 201);
     }
 
@@ -146,7 +143,7 @@ class AuthController extends Controller
         ]);
     }
 
-    
+
 
     /**
      * Re-send email verification token.
@@ -155,15 +152,34 @@ class AuthController extends Controller
      * @return \Illuminate\Http\Response
      */
     public function resendEmaiVerificationToken(Request $request){
+        $fields = $request->validate([
+            'email' => 'required|string',
+            'password' => 'required|string'
+        ]);
+
+        //Check email
+        $user = User::where('email', $fields['email'])->first();
+
+        //Check password
+        $isPasswordCorrect = Hash::check($fields['password'], $user->password);
+
+        //Check if the user exists or the password is correct
+        if(!$user || !$isPasswordCorrect){
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid credentials'
+            ], 401);
+        }
+
         //check if the user has already verified his email
-        if($request->user()->hasVerifiedEmail()){
+        if($user->hasVerifiedEmail()){
             return response()->json([
                 "status" => "error",
                 "message" => "Your account has already been verified"
             ], 422);
         }
 
-        $request->user()->sendEmailVerificationNotification();
+        $user->sendEmailVerificationNotification();
 
         return response()->json([
             'status' => 'success',
