@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Auth\Events\Verified;
 
 class AuthController extends Controller
 {   
@@ -35,12 +37,47 @@ class AuthController extends Controller
             'token' => $token
         ];
 
+        event(new Registered($user));
+
         return response()->json([
             'status' => 'success',
             'data' => $response,
             'message' => 'A new user has just been created'
         ], 201);
     }
+
+
+
+    /**
+     * Verify a user email (triggers when user clicks on verification link after sign up).
+     *
+     *  @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+
+    public function verifyEmail(Request $request){
+        $userID = $request['id'];
+
+        $user = User::findorFail($userID);
+
+        if ($user->hasVerifiedEmail()) {
+            return  response()->json([
+                'status' => 'error',
+                'message' => 'Your email has been verified before now'
+            ], 403);
+        }
+
+        if ($user->markEmailAsVerified()) {
+            event(new Verified($user));
+        }
+
+        return  response()->json([
+            'status' => 'success',
+            'message' => 'You can now login'
+        ], 200);
+     }
+
+
 
     /**
      * Log in a user.
@@ -69,6 +106,13 @@ class AuthController extends Controller
             ], 401);
         }
 
+        if (!$user->hasVerifiedEmail()) {
+            return  response()->json([
+                'status' => 'error',
+                'message' => 'Unable to login. Your account has not been verified!'
+            ], 403);
+        }
+
         //create token
         $token = $user->createToken('myapptoken')->plainTextToken;
 
@@ -85,6 +129,8 @@ class AuthController extends Controller
         ], 200);
     }
 
+
+
     /**
      * Log out a user.
      *
@@ -98,5 +144,30 @@ class AuthController extends Controller
             'status' => 'success',
             'message' => 'Logged out'
         ]);
+    }
+
+    
+
+    /**
+     * Re-send email verification token.
+     *
+     *  @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function resendEmaiVerificationToken(Request $request){
+        //check if the user has already verified his email
+        if($request->user()->hasVerifiedEmail()){
+            return response()->json([
+                "status" => "error",
+                "message" => "Your account has already been verified"
+            ], 422);
+        }
+
+        $request->user()->sendEmailVerificationNotification();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'A verification link has been sent to your email'
+        ], 200);
     }
 }

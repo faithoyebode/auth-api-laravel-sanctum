@@ -24,7 +24,20 @@ Route::post('/register', [AuthController::class, 'register']);
 
 Route::post('/login', [AuthController::class, 'login']);
 
+// Route::get('/login', function(\Illuminate\Http\Request $request){
+//     return "verification successful";
+// })->name('login');
+
+
 Route::get('/products', [ProductController::class, 'index']);
+
+Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
+    ->middleware(['signed'])
+    ->name('verification.verify');
+
+Route::get('/email/resend', [AuthController::class, 'resendEmaiVerificationToken'])
+    ->name('verification.resend');
+
 
 Route::get('/products/{id}', [ProductController::class, 'show']);
 
