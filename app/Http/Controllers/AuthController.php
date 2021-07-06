@@ -6,8 +6,13 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\Verified;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
+
 
 class AuthController extends Controller
 {   
@@ -185,5 +190,98 @@ class AuthController extends Controller
             'status' => 'success',
             'message' => 'A verification link has been sent to your email'
         ], 200);
+    }
+
+
+
+    /**
+     * Send password reset token.
+     *
+     *  @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+    **/
+    public function sendResetPasswordLink(Request $request){
+        $request->validate(['email' => 'required|email']);
+
+        $status = Password::sendResetLink($request->only('email'));
+
+        return $status === Password::RESET_LINK_SENT ?
+            response()->json([
+                'status' => 'success',
+                'message' => __($status)
+            ], 200) : 
+            response()->json([
+                'status' => 'error',
+                'message' => __($status)
+            ], 500);
+    }
+
+
+
+    /**
+     * Redirect to Reset Password 
+     * (get the token from the password reset link and tell the user 
+     * to include the token as part of the password.update route request body).
+     *
+     *  @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+    **/
+
+    public function redirectToResetPassword(Request  $request){
+        $token = $request->query('token');
+
+        if(!$token){
+            return response()->json([
+                "status" => "error",
+                "message" => "The request does not contain any token"
+            ], 403);
+        }
+
+        $url = URL::to('/api/reset-password'); 
+        
+        return response()->json([
+            "status" => "success",
+            "data" => [
+                "token" => $token
+            ],
+            "message" => "Get the token in this response and include it as part of a POST request body to the route ${url}"
+
+        ]);
+    }
+    /**
+     * Reset password (as a result of forget).
+     *
+     *  @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+    **/
+    public function resetPassword(Request $request){
+        $request->validate([
+            "token" => "required",
+            "email" => "required|email",
+            "password" => "required|min:3|confirmed"
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function($user, $password){
+                $user->forceFill([
+                    'password' => Hash::make($password) 
+                ]);
+
+                $user->save();
+
+                event(new PasswordReset($user));
+            }
+        );
+
+        return $status === Password::PASSWORD_RESET ?
+            response()->json([
+                'status' => 'success',
+                'message' => __($status)
+            ], 200) : 
+            response()->json([
+                'status' => 'error',
+                'message' => __($status)
+            ], 500);
     }
 }

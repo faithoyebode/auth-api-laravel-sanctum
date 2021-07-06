@@ -29,6 +29,12 @@ Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
 Route::post('/email/resend', [AuthController::class, 'resendEmaiVerificationToken'])
     ->name('verification.resend');
 
+Route::post('/forgot-password', [AuthController::class, 'sendResetPasswordLink'])->name('password.email');
+
+Route::get('/reset-password', [AuthController::class, 'redirectToResetPassword'])->name('password.redirect-to-reset');
+
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.reset');
+
 Route::get('/products', [ProductController::class, 'index']);
 
 Route::get('/products/{id}', [ProductController::class, 'show']);
